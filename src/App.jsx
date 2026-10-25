@@ -265,7 +265,7 @@ function App() {
   const [failedCompanies, setFailedCompanies] = useState([])
   const [savedIds, setSavedIds] = useState(readSavedJobs)
   const [query, setQuery] = useState('')
-  const [region, setRegion] = useState('India')
+  const [region, setRegion] = useState('All locations')
   const [batch, setBatch] = useState('Any batch')
   const [department, setDepartment] = useState('All roles')
   const [workMode, setWorkMode] = useState('Any mode')
