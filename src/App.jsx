@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 
 const batchOptions = ['Any batch', '2025', '2026', '2027', '2028', '2029', '2030', '2031', '2032']
+const workModes = ['Any mode', 'On-site', 'Hybrid', 'Remote']
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
 
 function readSavedJobs() {
@@ -11,6 +12,25 @@ function readSavedJobs() {
   } catch {
     return []
   }
+}
+
+async function readApiResponse(response, fallbackMessage) {
+  const contentType = response.headers.get('content-type') || ''
+  if (!contentType.includes('application/json')) {
+    if (response.status === 404) {
+      throw new Error('The Vercel API functions are not deployed yet. Redeploy the latest project files, including the api/ functions.')
+    }
+    throw new Error(`The server returned an unexpected response (HTTP ${response.status}). Check the Vercel function logs and try again.`)
+  }
+
+  let result
+  try {
+    result = await response.json()
+  } catch {
+    throw new Error('The server returned an invalid response. Check the Vercel function logs and try again.')
+  }
+  if (!response.ok) throw new Error(result.error || fallbackMessage)
+  return result
 }
 
 function Icon({ name, size = 18 }) {
@@ -148,10 +168,13 @@ function AdminModal({ onClose, onAddJob, isSaving }) {
             <label>Region<select name="region" defaultValue="India"><option>India</option><option>Outside India</option></select></label>
           </div>
           <div className="form-row">
+            <label>Work mode<select name="workMode" defaultValue="On-site"><option>On-site</option><option>Hybrid</option><option>Remote</option></select></label>
             <label>Stipend<input name="stipend" placeholder="e.g. ₹30,000 / month or Not disclosed" required /></label>
-            <label>Eligible batches<input name="batch" placeholder="e.g. 2027, 2028 or Not specified" required /></label>
           </div>
-          <label>Closing date<input name="deadline" placeholder="e.g. 30 Nov 2026 or Not specified" required /></label>
+          <div className="form-row">
+            <label>Eligible batches<input name="batch" placeholder="e.g. 2027, 2028 or Not specified" required /></label>
+            <label>Closing date<input name="deadline" placeholder="e.g. 30 Nov 2026 or Not specified" required /></label>
+          </div>
           <label>Employer application link<input name="url" type="url" placeholder="https://..." required /></label>
           {error && <p className="form-error" role="alert">{error}</p>}
           <div className="modal-actions"><button className="secondary-button" type="button" onClick={onClose}>Cancel</button><button className="primary-button" type="submit" disabled={isSaving}>{isSaving ? 'Publishing…' : 'Publish opening'}</button></div>
@@ -161,29 +184,44 @@ function AdminModal({ onClose, onAddJob, isSaving }) {
   )
 }
 
-function JobCard({ job, saved, onToggleSave }) {
+function JobCard({ job, saved, today, onToggleSave }) {
   const date = job.postedAt ? new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(job.postedAt)) : 'Date not provided'
+  const deadlineDate = job.deadline && Date.parse(job.deadline)
+  const deadlineDay = deadlineDate ? new Date(deadlineDate).setHours(0, 0, 0, 0) : null
+  const daysLeft = deadlineDay !== null && today !== null ? Math.ceil((deadlineDay - today) / 86_400_000) : null
+  const closingSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 7
+  const workMode = job.workMode || (/remote/i.test(job.location) ? 'Remote' : /hybrid/i.test(job.location) ? 'Hybrid' : 'On-site')
+  const deadlineLabel = daysLeft === null ? (job.deadline || `Updated ${date}`) : daysLeft < 0 ? 'Deadline passed' : daysLeft === 0 ? 'Closes today' : `Closes ${job.deadline}`
 
   return (
-    <article className="job-card">
+    <article className={`job-card ${closingSoon ? 'closing-soon' : ''}`}>
       <div className="job-card-heading">
         <div className="company-mark" aria-hidden="true">{job.company.slice(0, 1).toUpperCase()}</div>
-        <div className="job-title-block"><div className="company-line">{job.company}<span className="source-badge">{job.source}</span></div><h3>{job.title}</h3></div>
+        <div className="job-title-block">
+          <div className="job-badges">
+            {closingSoon && <span className="closing-badge">Closing soon</span>}
+            <span className="job-type-badge">Internship</span>
+            <span className="source-badge">{job.source}</span>
+            {daysLeft !== null && daysLeft >= 0 && <span className="days-badge">{daysLeft === 0 ? 'Today' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`}</span>}
+          </div>
+          <h3>{job.title}</h3>
+          <div className="company-line"><Icon name="briefcase" size={14} />{job.company}</div>
+        </div>
         <button className={`icon-button save-button ${saved ? 'is-saved' : ''}`} type="button" onClick={() => onToggleSave(job.id)} aria-label={saved ? `Remove ${job.title} from saved jobs` : `Save ${job.title}`}>
           <Icon name="bookmark" size={17} />
         </button>
       </div>
       <div className="job-meta">
-        <span><Icon name="location" size={15} />{job.location}</span>
-        <span><Icon name="briefcase" size={15} />{job.department}</span>
-        <span><Icon name="calendar" size={15} />{job.deadline ? `Closes ${job.deadline}` : `Updated ${date}`}</span>
+        <span><Icon name="location" size={15} /><strong>Where:</strong> {job.location} · {workMode}</span>
+        <span><Icon name="wallet" size={15} /><strong>Stipend:</strong> {job.stipend}</span>
+        <span><Icon name="calendar" size={15} /><strong>Deadline:</strong> {deadlineLabel}</span>
       </div>
       <div className="job-foot">
         <div className="job-facts">
-          <span><Icon name="wallet" size={15} /><strong>{job.stipend}</strong></span>
-          <span className="eligibility"><Icon name="check" size={14} />{job.batchYears.length ? `Batch ${job.batchYears.join(', ')}` : 'Batch eligibility not specified'}</span>
+          <span className="eligibility"><Icon name="check" size={14} />{job.batchYears.length ? `Eligible batch ${job.batchYears.join(', ')}` : 'Batch eligibility not specified'}</span>
+          <span className="job-sector">{job.department}</span>
         </div>
-        <a className="apply-button" href={job.url} target="_blank" rel="noreferrer">View & apply <Icon name="external" size={15} /></a>
+        <a className="apply-button" href={job.url} target="_blank" rel="noreferrer">Apply on the official site <Icon name="external" size={15} /></a>
       </div>
     </article>
   )
@@ -198,6 +236,9 @@ function App() {
   const [region, setRegion] = useState('All locations')
   const [batch, setBatch] = useState('Any batch')
   const [department, setDepartment] = useState('All roles')
+  const [workMode, setWorkMode] = useState('Any mode')
+  const [paidOnly, setPaidOnly] = useState(false)
+  const [sortBy, setSortBy] = useState('deadline')
   const [activePage, setActivePage] = useState('Internships')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -208,12 +249,11 @@ function App() {
   const [signInOpen, setSignInOpen] = useState(false)
   const [adminOpen, setAdminOpen] = useState(false)
   const [isSavingJob, setIsSavingJob] = useState(false)
+  const [today, setToday] = useState(null)
 
   async function fetchJobs(forceRefresh = false) {
     const response = await fetch(`/api/jobs${forceRefresh ? '?refresh=true' : ''}`)
-    const result = await response.json()
-    if (!response.ok) throw new Error(result.error || 'Could not load company internships.')
-    return result
+    return readApiResponse(response, 'Could not load company internships.')
   }
 
   async function loadJobs(forceRefresh = false) {
@@ -253,9 +293,8 @@ function App() {
       })
 
     fetch('/api/session')
-      .then(async (response) => {
-        const result = await response.json()
-        if (!response.ok) throw new Error(result.error || 'Could not check sign-in status.')
+      .then((response) => readApiResponse(response, 'Could not check sign-in status.'))
+      .then((result) => {
         if (!active) return
         setUser(result.user)
         setIsAdmin(result.isAdmin)
@@ -270,17 +309,37 @@ function App() {
     localStorage.setItem('jip-saved-jobs', JSON.stringify(savedIds))
   }, [savedIds])
 
+  useEffect(() => {
+    const updateToday = () => {
+      const current = new Date()
+      current.setHours(0, 0, 0, 0)
+      setToday(current.getTime())
+    }
+    updateToday()
+    const timer = setInterval(updateToday, 60 * 60 * 1000)
+    return () => clearInterval(timer)
+  }, [])
+
   const filteredJobs = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
-    return jobs.filter((job) => {
+    const matches = jobs.filter((job) => {
       const matchesSearch = !normalizedQuery || [job.title, job.company, job.department, job.location].some((value) => value.toLowerCase().includes(normalizedQuery))
       const matchesRegion = region === 'All locations' || job.region === region
       const matchesBatch = batch === 'Any batch' || job.batchYears.includes(batch)
       const matchesDepartment = department === 'All roles' || job.department.toLowerCase().includes(department.toLowerCase())
       const matchesSaved = activePage !== 'Saved jobs' || savedIds.includes(job.id)
-      return matchesSearch && matchesRegion && matchesBatch && matchesDepartment && matchesSaved
+      const jobMode = job.workMode || (/remote/i.test(job.location) ? 'Remote' : /hybrid/i.test(job.location) ? 'Hybrid' : 'On-site')
+      const matchesMode = workMode === 'Any mode' || jobMode === workMode
+      const isPaid = /\d/.test(job.stipend) && !/unpaid|volunteer/i.test(job.stipend)
+      return matchesSearch && matchesRegion && matchesBatch && matchesDepartment && matchesSaved && matchesMode && (!paidOnly || isPaid)
     })
-  }, [activePage, batch, department, jobs, query, region, savedIds])
+    return matches.sort((a, b) => {
+      if (sortBy === 'recent') return (Date.parse(b.postedAt || '') || 0) - (Date.parse(a.postedAt || '') || 0)
+      const aDeadline = Date.parse(a.deadline || '') || Number.POSITIVE_INFINITY
+      const bDeadline = Date.parse(b.deadline || '') || Number.POSITIVE_INFINITY
+      return aDeadline - bDeadline || (Date.parse(b.postedAt || '') || 0) - (Date.parse(a.postedAt || '') || 0)
+    })
+  }, [activePage, batch, department, jobs, paidOnly, query, region, savedIds, sortBy, workMode])
 
   const signInWithGoogle = useCallback(async (credential) => {
     const response = await fetch('/api/auth/google', {
@@ -288,8 +347,7 @@ function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ credential }),
     })
-    const result = await response.json()
-    if (!response.ok) throw new Error(result.error || 'Google sign-in failed.')
+    const result = await readApiResponse(response, 'Google sign-in failed.')
     setUser(result.user)
     setIsAdmin(result.isAdmin)
     setSignInOpen(false)
@@ -297,7 +355,7 @@ function App() {
 
   async function signOut() {
     const response = await fetch('/api/auth/logout', { method: 'POST' })
-    if (!response.ok) throw new Error('Could not sign out. Please try again.')
+    await readApiResponse(response, 'Could not sign out. Please try again.')
     setUser(null)
     setIsAdmin(false)
   }
@@ -314,8 +372,7 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(job),
       })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || 'Could not publish this job.')
+      const result = await readApiResponse(response, 'Could not publish this job.')
       setJobs((current) => [result.job, ...current])
       setCompanies((current) => current.includes(result.job.company) ? current : [...current, result.job.company])
       setAdminOpen(false)
@@ -337,34 +394,40 @@ function App() {
           <button className={activePage === 'Saved jobs' ? 'active' : ''} type="button" onClick={() => setActivePage('Saved jobs')}>Saved jobs{savedIds.length > 0 && <span>{savedIds.length}</span>}</button>
         </nav>
         <div className="account-actions">
-          {isAdmin && <button className="admin-button" type="button" onClick={() => setAdminOpen(true)}>Post a job</button>}
+          {isAdmin && <button className="admin-button" type="button" onClick={() => setAdminOpen(true)}>+ Add internship</button>}
           {user ? <div className="signed-in"><span className="user-name">{user.name}</span><button className="signout-button" type="button" onClick={() => signOut().catch((signOutError) => setError(signOutError.message))}>Sign out</button></div> : <button className="signin-button" type="button" onClick={() => setSignInOpen(true)}>Sign in with Google</button>}
         </div>
       </header>
 
       <main className="page-content">
         <section className="page-heading">
-          <div><div className="breadcrumb">Home <span>/</span> {activePage}</div><h1>{activePage === 'Saved jobs' ? 'Saved internships' : 'Internship openings'}</h1><p>Explore current internship opportunities at leading product companies.</p></div>
-          {isAdmin && <button className="mobile-admin-button" type="button" onClick={() => setAdminOpen(true)}>+ Post a job</button>}
+          <div><div className="breadcrumb">Home <span>/</span> {activePage}</div><p className="hero-kicker">YOUR NEXT OPPORTUNITY STARTS HERE</p><h1>{activePage === 'Saved jobs' ? 'Saved internships' : 'Find your next internship'}</h1><p>Discover verified internship opportunities and apply directly on official company career pages.</p></div>
+          <div className="add-job-prompt">{isAdmin ? <button className="mobile-admin-button" type="button" onClick={() => setAdminOpen(true)}>+ Add internship</button> : <span>Admin? Sign in with your configured Google account to post.</span>}</div>
         </section>
 
         <section className="overview" aria-label="Live opening summary">
-          <div className="overview-item"><span className="overview-number">{jobs.length}</span><span className="overview-label">live internships</span></div>
+          <div className="overview-item"><span className="overview-number">{jobs.length}</span><span className="overview-label">open internships</span></div>
           <div className="overview-divider" />
           <div className="overview-item"><span className="overview-number">{companies.length}</span><span className="overview-label">product companies</span></div>
           <div className="overview-divider" />
-          <div className="overview-item"><span className="overview-number">Live</span><span className="overview-label">official career pages</span></div>
+          <div className="overview-item"><span className="overview-number">Verified</span><span className="overview-label">official career pages</span></div>
           <div className="overview-updated">{updatedAt && <>Feed refreshed {new Intl.DateTimeFormat('en-IN', { hour: 'numeric', minute: '2-digit' }).format(new Date(updatedAt))}</>}</div>
         </section>
 
         <section className="directory-section" aria-label="Internship directory">
-          <div className="directory-title"><div><h2>{activePage === 'Saved jobs' ? 'Your saved openings' : 'Browse openings'}</h2><p>Openings are linked to the employer’s official careers page.</p></div><button className="refresh-button" type="button" disabled={refreshing} onClick={() => loadJobs(true)}><Icon name="refresh" size={15} />{refreshing ? 'Refreshing…' : 'Refresh'}</button></div>
+          <div className="directory-title"><div><h2>{activePage === 'Saved jobs' ? 'Your saved openings' : 'Internships for you'}</h2><p>Explore current openings and apply directly on the employer’s official site.</p></div><button className="refresh-button" type="button" disabled={refreshing} onClick={() => loadJobs(true)}><Icon name="refresh" size={15} />{refreshing ? 'Refreshing…' : 'Refresh'}</button></div>
 
           <div className="filters">
-            <label className="search-input"><Icon name="search" size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by role, company, or keyword" aria-label="Search internships" />{query && <button type="button" onClick={() => setQuery('')} aria-label="Clear search"><Icon name="close" size={15} /></button>}</label>
-            <label className="select-filter"><span>Role</span><select value={department} onChange={(event) => setDepartment(event.target.value)} aria-label="Filter by role"><option>All roles</option><option>Engineering</option><option>Design</option><option>Product</option><option>Marketing</option><option>Data</option><option>Business</option></select><Icon name="chevron" size={14} /></label>
-            <label className="select-filter"><span>Graduation batch</span><select value={batch} onChange={(event) => setBatch(event.target.value)} aria-label="Filter by graduation batch">{batchOptions.map((year) => <option key={year}>{year}</option>)}</select><Icon name="chevron" size={14} /></label>
-            <label className="select-filter"><span>Location</span><select value={region} onChange={(event) => setRegion(event.target.value)} aria-label="Filter by location"><option>All locations</option><option>India</option><option>Outside India</option></select><Icon name="chevron" size={14} /></label>
+            <label className="search-input"><Icon name="search" size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Company, role, city, eligibility..." aria-label="Search internships" />{query && <button type="button" onClick={() => setQuery('')} aria-label="Clear search"><Icon name="close" size={15} /></button>}</label>
+            <label className="select-filter"><span>Sector</span><select value={department} onChange={(event) => setDepartment(event.target.value)} aria-label="Filter by sector"><option>All roles</option><option>Engineering</option><option>Design</option><option>Product</option><option>Marketing</option><option>Data</option><option>Business</option></select><Icon name="chevron" size={14} /></label>
+            <label className="select-filter"><span>Sort</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value)} aria-label="Sort internships"><option value="deadline">Deadline soonest</option><option value="recent">Recently added</option></select><Icon name="chevron" size={14} /></label>
+          </div>
+          <div className="filter-toolbar">
+            <div className="mode-chips" aria-label="Filter by work mode">{workModes.map((mode) => <button key={mode} type="button" className={workMode === mode ? 'selected' : ''} onClick={() => setWorkMode(mode)}>{mode}</button>)}</div>
+            <label className="paid-filter"><input type="checkbox" checked={paidOnly} onChange={(event) => setPaidOnly(event.target.checked)} /> Paid only</label>
+            <label className="compact-filter"><span>Batch</span><select value={batch} onChange={(event) => setBatch(event.target.value)} aria-label="Filter by graduation batch">{batchOptions.map((year) => <option key={year}>{year}</option>)}</select></label>
+            <label className="compact-filter"><span>Location</span><select value={region} onChange={(event) => setRegion(event.target.value)} aria-label="Filter by location"><option>All locations</option><option>India</option><option>Outside India</option></select></label>
+            <span className="result-count">{filteredJobs.length} of {jobs.length}</span>
           </div>
 
           <div className="results-label"><span>{activePage === 'Saved jobs' ? 'SAVED OPENINGS' : 'CURRENT OPENINGS'}</span><span>{loading ? 'Loading…' : `${filteredJobs.length} ${filteredJobs.length === 1 ? 'opening' : 'openings'}`}</span></div>
@@ -374,7 +437,7 @@ function App() {
           {loading && <div className="loading-state"><span className="loading-spinner" />Loading live internships from company career pages…</div>}
           {!loading && !error && visibleJobs.length === 0 && <div className="empty-state"><div className="empty-icon"><Icon name={activePage === 'Saved jobs' ? 'bookmark' : 'briefcase'} size={22} /></div><h3>{activePage === 'Saved jobs' ? 'No saved openings yet' : 'No matching internships'}</h3><p>{activePage === 'Saved jobs' ? 'Select the bookmark on an opening to save it here.' : 'Try changing your search or filters, or check back later for new roles.'}</p>{activePage === 'Saved jobs' && <button type="button" className="text-link" onClick={() => setActivePage('Internships')}>Browse all internships</button>}</div>}
           <div className="job-list">
-            {!loading && !error && visibleJobs.map((job) => <JobCard key={job.id} job={job} saved={savedIds.includes(job.id)} onToggleSave={toggleSaved} />)}
+            {!loading && !error && visibleJobs.map((job) => <JobCard key={job.id} job={job} saved={savedIds.includes(job.id)} today={today} onToggleSave={toggleSaved} />)}
           </div>
           <div className="data-note"><Icon name="globe" size={14} /><span>Listings are fetched from official company career pages. Stipend, batch eligibility, and closing dates are shown only when the employer publishes them.</span></div>
         </section>

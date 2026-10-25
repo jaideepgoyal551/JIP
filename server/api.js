@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { list, put } from '@vercel/blob'
 import { OAuth2Client } from 'google-auth-library'
 
 const careerBoards = [
@@ -24,6 +25,7 @@ const careerBoards = [
 
 const cacheDurationMs = 10 * 60 * 1000
 const sessionDurationSeconds = 60 * 60 * 24 * 7
+const manualJobsBlobPath = 'jip/manual-jobs.json'
 const oauthClient = new OAuth2Client()
 let jobsCache
 
@@ -33,6 +35,11 @@ function sendJson(response, status, value, headers = {}) {
 }
 
 async function readBody(request) {
+  if (request.body !== undefined) {
+    if (typeof request.body === 'string') return JSON.parse(request.body)
+    if (request.body && typeof request.body === 'object') return request.body
+  }
+
   const chunks = []
   let size = 0
   for await (const chunk of request) {
@@ -82,6 +89,7 @@ function normalizeJob(job, company) {
     title,
     department: getText(job.departments?.[0]?.name) || 'Internship',
     location,
+    workMode: /remote/i.test(location) ? 'Remote' : /hybrid/i.test(location) ? 'Hybrid' : 'On-site',
     region: /\bindia\b|\bbengaluru\b|\bbangalore\b|\bmumbai\b|\bhyderabad\b|\bdelhi\b|\bpune\b|\bchennai\b|\bnoida\b|\bgurugram\b/i.test(location)
       ? 'India'
       : 'Outside India',
@@ -110,6 +118,20 @@ async function fetchCompanyJobs({ company, board }) {
 }
 
 async function readManualJobs(dataDirectory) {
+  const blobToken = process.env.BLOB_READ_WRITE_TOKEN
+  if (blobToken) {
+    const { blobs } = await list({ prefix: manualJobsBlobPath, token: blobToken })
+    const manualJobsBlob = blobs.find((blob) => blob.pathname === manualJobsBlobPath)
+    if (!manualJobsBlob) return []
+    const response = await fetch(manualJobsBlob.url, { cache: 'no-store' })
+    if (!response.ok) throw new Error(`Unable to read manual jobs from Vercel Blob (HTTP ${response.status})`)
+    const jobs = await response.json()
+    if (!Array.isArray(jobs)) throw new Error('Manual jobs blob must contain an array')
+    return jobs
+  }
+
+  if (process.env.VERCEL) return []
+
   try {
     const contents = await readFile(path.join(dataDirectory, 'manual-jobs.json'), 'utf8')
     const jobs = JSON.parse(contents)
@@ -119,6 +141,28 @@ async function readManualJobs(dataDirectory) {
     if (error.code === 'ENOENT') return []
     throw error
   }
+}
+
+async function writeManualJobs(dataDirectory, jobs) {
+  const blobToken = process.env.BLOB_READ_WRITE_TOKEN
+  if (blobToken) {
+    await put(manualJobsBlobPath, JSON.stringify(jobs), {
+      access: 'public',
+      addRandomSuffix: false,
+      allowOverwrite: true,
+      contentType: 'application/json; charset=utf-8',
+      cacheControlMaxAge: 60,
+      token: blobToken,
+    })
+    return
+  }
+
+  if (process.env.VERCEL) {
+    throw new Error('Add a BLOB_READ_WRITE_TOKEN environment variable to enable persistent job posting on Vercel.')
+  }
+
+  await mkdir(dataDirectory, { recursive: true })
+  await writeFile(path.join(dataDirectory, 'manual-jobs.json'), JSON.stringify(jobs, null, 2))
 }
 
 async function loadJobs(dataDirectory, forceRefresh = false) {
@@ -204,7 +248,10 @@ export function createApiHandler({ clientId = process.env.GOOGLE_CLIENT_ID, sess
 
       if (requestUrl.pathname === '/api/jobs' && request.method === 'GET') {
         try {
-          return sendJson(response, 200, await loadJobs(dataDirectory, requestUrl.searchParams.get('refresh') === 'true'))
+          const forceRefresh = requestUrl.searchParams.get('refresh') === 'true'
+          return sendJson(response, 200, await loadJobs(dataDirectory, forceRefresh), {
+            'Cache-Control': forceRefresh ? 'no-store' : 'public, s-maxage=60, stale-while-revalidate=300',
+          })
         } catch (error) {
           console.error('Unable to load company job feeds:', error)
           return sendJson(response, 502, { error: 'Live company listings are temporarily unavailable. Please try again shortly.' })
@@ -271,7 +318,6 @@ export function createApiHandler({ clientId = process.env.GOOGLE_CLIENT_ID, sess
         }
         if (!['https:', 'http:'].includes(applicationUrl.protocol)) return sendJson(response, 400, { error: 'Enter an HTTP or HTTPS application URL.' })
 
-        await mkdir(dataDirectory, { recursive: true })
         const manualJobs = await readManualJobs(dataDirectory)
         const job = {
           id: `admin-${Date.now()}`,
@@ -279,6 +325,7 @@ export function createApiHandler({ clientId = process.env.GOOGLE_CLIENT_ID, sess
           title: body.title.trim(),
           department: body.department.trim(),
           location: body.location.trim(),
+          workMode: ['On-site', 'Hybrid', 'Remote'].includes(body.workMode) ? body.workMode : 'On-site',
           region: body.region === 'India' ? 'India' : 'Outside India',
           stipend: body.stipend.trim(),
           deadline: body.deadline.trim(),
@@ -287,7 +334,16 @@ export function createApiHandler({ clientId = process.env.GOOGLE_CLIENT_ID, sess
           url: applicationUrl.toString(),
           source: `Added by ${session.name}`,
         }
-        await writeFile(path.join(dataDirectory, 'manual-jobs.json'), JSON.stringify([job, ...manualJobs], null, 2))
+        try {
+          await writeManualJobs(dataDirectory, [job, ...manualJobs])
+        } catch (error) {
+          console.error('Unable to persist admin job:', error)
+          return sendJson(response, 503, {
+            error: process.env.VERCEL && !process.env.BLOB_READ_WRITE_TOKEN
+              ? 'Persistent job storage is not configured. Add a Vercel Blob store and set BLOB_READ_WRITE_TOKEN.'
+              : 'Could not save the new job. Please check the server storage configuration and try again.',
+          })
+        }
         return sendJson(response, 201, { job })
       }
 
