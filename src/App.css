@@ -160,6 +160,25 @@ button {
   color: #fff;
 }
 
+.theme-toggle {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #dfe8e1;
+  border-radius: 10px;
+  background: #fff;
+  color: #52665a;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+
+.theme-toggle:hover {
+  border-color: #bbd7c2;
+  background: #f0f7f1;
+  color: #167a41;
+}
+
 .admin-button:hover {
   background: #344c6a;
 }
@@ -462,6 +481,12 @@ button {
   font-family: var(--font-display);
   font-size: 17px;
   font-weight: 700;
+}
+
+.company-mark img {
+  width: 27px;
+  height: 27px;
+  object-fit: contain;
 }
 
 .job-title-block {
@@ -1617,6 +1642,241 @@ button {
   color: #fff;
 }
 
+.theme-dark {
+  color-scheme: dark;
+  background: #101713;
+  color: #e4ece6;
+}
+
+.theme-dark .topbar {
+  border-bottom-color: #29362e;
+  background: rgb(20 28 23 / 97%);
+}
+
+.theme-dark .brand-name,
+.theme-dark .page-heading h1,
+.theme-dark .directory-title h2,
+.theme-dark .job-title-block h3,
+.theme-dark .overview-number,
+.theme-dark .empty-state h3 {
+  color: #e5eee7;
+}
+
+.theme-dark .brand-name small,
+.theme-dark .breadcrumb,
+.theme-dark .page-heading > div:first-child > p:last-child,
+.theme-dark .directory-title p,
+.theme-dark .overview-label,
+.theme-dark .overview-updated,
+.theme-dark .results-label,
+.theme-dark .job-meta,
+.theme-dark .job-facts,
+.theme-dark .company-line,
+.theme-dark .data-note,
+.theme-dark .page-footer,
+.theme-dark .add-job-prompt {
+  color: #a2b1a6;
+}
+
+.theme-dark .main-nav button {
+  color: #a8b6ac;
+}
+
+.theme-dark .main-nav button.active,
+.theme-dark .main-nav button:hover {
+  color: #e1eee5;
+}
+
+.theme-dark .main-nav button > span {
+  background: #283b2e;
+  color: #b9d9c1;
+}
+
+.theme-dark .brand-mark {
+  border: 1px solid #385744;
+  background: #243b2d;
+  color: #d5ead9;
+}
+
+.theme-dark .theme-toggle,
+.theme-dark .overview,
+.theme-dark .filters,
+.theme-dark .job-card,
+.theme-dark .refresh-button,
+.theme-dark .icon-button,
+.theme-dark .signin-modal,
+.theme-dark .admin-modal,
+.theme-dark .status-message button,
+.theme-dark .loading-state,
+.theme-dark .empty-state {
+  border-color: #2d3b32;
+  background: #19221c;
+  color: #d1ddd4;
+}
+
+.theme-dark .theme-toggle:hover {
+  border-color: #4c7256;
+  background: #24372a;
+  color: #9bd0a7;
+}
+
+.theme-dark .overview-divider,
+.theme-dark .job-foot,
+.theme-dark .page-footer,
+.theme-dark .filter-toolbar {
+  border-color: #2d3b32;
+  background-color: transparent;
+}
+
+.theme-dark .select-filter {
+  border-left-color: #2d3b32;
+  color: #91a197;
+}
+
+.theme-dark .search-input input,
+.theme-dark .select-filter select,
+.theme-dark .compact-filter select {
+  color: #dbe7de;
+}
+
+.theme-dark .search-input input::placeholder {
+  color: #819087;
+}
+
+.theme-dark .search-input button {
+  background: #29362e;
+  color: #bdc9c0;
+}
+
+.theme-dark .mode-chips button,
+.theme-dark .paid-filter,
+.theme-dark .compact-filter {
+  border-color: #37473c;
+  background: #1b261f;
+  color: #afbeb3;
+}
+
+.theme-dark .mode-chips button:hover,
+.theme-dark .mode-chips button.selected {
+  border-color: #4e805b;
+  background: #25412d;
+  color: #c2e5c9;
+}
+
+.theme-dark .job-card:hover {
+  border-color: #4a6d52;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+}
+
+.theme-dark .job-card.closing-soon {
+  border-color: #466b4d;
+  background: #1b2a20;
+}
+
+.theme-dark .company-mark {
+  border-color: #3a493e;
+  background: #fff;
+  color: #d2e7d7;
+}
+
+.theme-dark .job-meta strong,
+.theme-dark .job-facts .eligibility {
+  color: #c3d1c7;
+}
+
+.theme-dark .job-meta svg,
+.theme-dark .job-facts svg,
+.theme-dark .company-line svg {
+  color: #97a99c;
+}
+
+.theme-dark .job-foot {
+  border-top-color: #303e34;
+}
+
+.theme-dark .job-sector,
+.theme-dark .source-badge {
+  border-color: #3a4b3e;
+  background: #26352b;
+  color: #b3c7b7;
+}
+
+.theme-dark .source-badge {
+  background: #26352b;
+}
+
+.theme-dark .closing-badge,
+.theme-dark .days-badge {
+  border-color: #663b45;
+  background: #3b252b;
+  color: #ffb4c0;
+}
+
+.theme-dark .apply-button {
+  border-color: #239654;
+  background: #168448;
+  color: #fff;
+}
+
+.theme-dark .apply-button:hover {
+  border-color: #2cab62;
+  background: #1b9852;
+}
+
+.theme-dark .empty-icon {
+  background: #27382b;
+  color: #a9d6b1;
+}
+
+.theme-dark .empty-state p,
+.theme-dark .signin-copy,
+.theme-dark .signin-terms,
+.theme-dark .modal-heading p {
+  color: #a2b1a6;
+}
+
+.theme-dark .signin-modal h2,
+.theme-dark .modal-heading h2 {
+  color: #e5eee7;
+}
+
+.theme-dark .admin-form label {
+  color: #c0cdc3;
+}
+
+.theme-dark .admin-form input,
+.theme-dark .admin-form select,
+.theme-dark .secondary-button,
+.theme-dark .signout-button,
+.theme-dark .modal-actions {
+  border-color: #35443a;
+  background: #1b261f;
+  color: #d7e2da;
+}
+
+.theme-dark .admin-form input::placeholder {
+  color: #829187;
+}
+
+.theme-dark .signin-setup {
+  background: #302f24;
+  color: #d1c79b;
+}
+
+.theme-dark .status-message {
+  border-color: #613d39;
+  background: #302321;
+  color: #e8b4ab;
+}
+
+.theme-dark .status-message strong {
+  color: #f1c4bb;
+}
+
+.theme-dark .partial-warning {
+  color: #d2c18e;
+}
+
 .data-note {
   margin-top: 18px;
   font-size: 10px;
@@ -1647,6 +1907,11 @@ button {
     min-height: 31px;
     padding: 0 8px;
     font-size: 9px;
+  }
+
+  .theme-toggle {
+    width: 32px;
+    height: 31px;
   }
 
   .page-content {

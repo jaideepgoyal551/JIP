@@ -4,6 +4,32 @@ import './App.css'
 const batchOptions = ['Any batch', '2025', '2026', '2027', '2028', '2029', '2030', '2031', '2032']
 const workModes = ['Any mode', 'On-site', 'Hybrid', 'Remote']
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+const companyDomains = {
+  airbnb: 'airbnb.com',
+  asana: 'asana.com',
+  cloudflare: 'cloudflare.com',
+  coinbase: 'coinbase.com',
+  discord: 'discord.com',
+  dropbox: 'dropbox.com',
+  duolingo: 'duolingo.com',
+  figma: 'figma.com',
+  groww: 'groww.in',
+  gusto: 'gusto.com',
+  inmobi: 'inmobi.com',
+  lyft: 'lyft.com',
+  mongodb: 'mongodb.com',
+  pinterest: 'pinterest.com',
+  reddit: 'reddit.com',
+  stripe: 'stripe.com',
+}
+
+function readTheme() {
+  try {
+    return localStorage.getItem('jip-theme') === 'dark'
+  } catch {
+    return false
+  }
+}
 
 function readSavedJobs() {
   try {
@@ -48,12 +74,28 @@ function Icon({ name, size = 18 }) {
     globe: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></>,
     menu: <><path d="M4 7h16M4 12h16M4 17h16" /></>,
     check: <path d="m5 12 4 4L19 6" />,
+    moon: <path d="M20.9 13A9 9 0 0 1 11 3.1 9 9 0 1 0 20.9 13Z" />,
+    sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" /></>,
   }
 
   return (
     <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
       {paths[name]}
     </svg>
+  )
+}
+
+function CompanyMark({ company }) {
+  const [logoUnavailable, setLogoUnavailable] = useState(false)
+  const domain = companyDomains[company.toLowerCase().replace(/[^a-z]/g, '')]
+  const logoUrl = domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=128` : null
+
+  return (
+    <div className="company-mark" aria-label={`${company} logo`}>
+      {logoUrl && !logoUnavailable
+        ? <img src={logoUrl} alt="" loading="lazy" onError={() => setLogoUnavailable(true)} />
+        : <span aria-hidden="true">{company.slice(0, 1).toUpperCase()}</span>}
+    </div>
   )
 }
 
@@ -196,7 +238,7 @@ function JobCard({ job, saved, today, onToggleSave }) {
   return (
     <article className={`job-card ${closingSoon ? 'closing-soon' : ''}`}>
       <div className="job-card-heading">
-        <div className="company-mark" aria-hidden="true">{job.company.slice(0, 1).toUpperCase()}</div>
+        <CompanyMark company={job.company} />
         <div className="job-title-block">
           <div className="job-badges">
             {closingSoon && <span className="closing-badge">Closing soon</span>}
@@ -250,6 +292,7 @@ function App() {
   const [adminOpen, setAdminOpen] = useState(false)
   const [isSavingJob, setIsSavingJob] = useState(false)
   const [today, setToday] = useState(null)
+  const [darkTheme, setDarkTheme] = useState(readTheme)
 
   async function fetchJobs(forceRefresh = false) {
     const response = await fetch(`/api/jobs${forceRefresh ? '?refresh=true' : ''}`)
@@ -308,6 +351,14 @@ function App() {
   useEffect(() => {
     localStorage.setItem('jip-saved-jobs', JSON.stringify(savedIds))
   }, [savedIds])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('jip-theme', darkTheme ? 'dark' : 'light')
+    } catch (storageError) {
+      console.error('Unable to save theme preference:', storageError)
+    }
+  }, [darkTheme])
 
   useEffect(() => {
     const updateToday = () => {
@@ -384,7 +435,7 @@ function App() {
   const visibleJobs = filteredJobs
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${darkTheme ? 'theme-dark' : ''}`}>
       <header className="topbar">
         <a className="brand" href="#" onClick={(event) => { event.preventDefault(); setActivePage('Internships') }}>
           <span className="brand-mark">j<span>.</span></span><span className="brand-name">jip<small>INTERNSHIP PORTAL</small></span>
@@ -394,6 +445,9 @@ function App() {
           <button className={activePage === 'Saved jobs' ? 'active' : ''} type="button" onClick={() => setActivePage('Saved jobs')}>Saved jobs{savedIds.length > 0 && <span>{savedIds.length}</span>}</button>
         </nav>
         <div className="account-actions">
+          <button className="theme-toggle" type="button" onClick={() => setDarkTheme((current) => !current)} aria-label={`Switch to ${darkTheme ? 'light' : 'dark'} theme`} title={`Switch to ${darkTheme ? 'light' : 'dark'} theme`}>
+            <Icon name={darkTheme ? 'sun' : 'moon'} size={17} />
+          </button>
           {isAdmin && <button className="admin-button" type="button" onClick={() => setAdminOpen(true)}>+ Add internship</button>}
           {user ? <div className="signed-in"><span className="user-name">{user.name}</span><button className="signout-button" type="button" onClick={() => signOut().catch((signOutError) => setError(signOutError.message))}>Sign out</button></div> : <button className="signin-button" type="button" onClick={() => setSignInOpen(true)}>Sign in with Google</button>}
         </div>
