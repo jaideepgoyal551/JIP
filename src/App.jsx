@@ -23,14 +23,6 @@ const companyDomains = {
   stripe: 'stripe.com',
 }
 
-function readTheme() {
-  try {
-    return localStorage.getItem('jip-theme') === 'dark'
-  } catch {
-    return false
-  }
-}
-
 function readSavedJobs() {
   try {
     const storedJobs = JSON.parse(localStorage.getItem('jip-saved-jobs') || '[]')
@@ -74,8 +66,6 @@ function Icon({ name, size = 18 }) {
     globe: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></>,
     menu: <><path d="M4 7h16M4 12h16M4 17h16" /></>,
     check: <path d="m5 12 4 4L19 6" />,
-    moon: <path d="M20.9 13A9 9 0 0 1 11 3.1 9 9 0 1 0 20.9 13Z" />,
-    sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" /></>,
   }
 
   return (
@@ -275,11 +265,11 @@ function App() {
   const [failedCompanies, setFailedCompanies] = useState([])
   const [savedIds, setSavedIds] = useState(readSavedJobs)
   const [query, setQuery] = useState('')
-  const [region, setRegion] = useState('All locations')
+  const [region, setRegion] = useState('India')
   const [batch, setBatch] = useState('Any batch')
   const [department, setDepartment] = useState('All roles')
   const [workMode, setWorkMode] = useState('Any mode')
-  const [paidOnly, setPaidOnly] = useState(false)
+  const [paidOnly, setPaidOnly] = useState(true)
   const [sortBy, setSortBy] = useState('deadline')
   const [activePage, setActivePage] = useState('Internships')
   const [loading, setLoading] = useState(true)
@@ -292,7 +282,6 @@ function App() {
   const [adminOpen, setAdminOpen] = useState(false)
   const [isSavingJob, setIsSavingJob] = useState(false)
   const [today, setToday] = useState(null)
-  const [darkTheme, setDarkTheme] = useState(readTheme)
 
   async function fetchJobs(forceRefresh = false) {
     const response = await fetch(`/api/jobs${forceRefresh ? '?refresh=true' : ''}`)
@@ -353,14 +342,6 @@ function App() {
   }, [savedIds])
 
   useEffect(() => {
-    try {
-      localStorage.setItem('jip-theme', darkTheme ? 'dark' : 'light')
-    } catch (storageError) {
-      console.error('Unable to save theme preference:', storageError)
-    }
-  }, [darkTheme])
-
-  useEffect(() => {
     const updateToday = () => {
       const current = new Date()
       current.setHours(0, 0, 0, 0)
@@ -385,6 +366,8 @@ function App() {
       return matchesSearch && matchesRegion && matchesBatch && matchesDepartment && matchesSaved && matchesMode && (!paidOnly || isPaid)
     })
     return matches.sort((a, b) => {
+      const countryPriority = Number(b.region === 'India') - Number(a.region === 'India')
+      if (countryPriority) return countryPriority
       if (sortBy === 'recent') return (Date.parse(b.postedAt || '') || 0) - (Date.parse(a.postedAt || '') || 0)
       const aDeadline = Date.parse(a.deadline || '') || Number.POSITIVE_INFINITY
       const bDeadline = Date.parse(b.deadline || '') || Number.POSITIVE_INFINITY
@@ -435,7 +418,7 @@ function App() {
   const visibleJobs = filteredJobs
 
   return (
-    <div className={`app-shell ${darkTheme ? 'theme-dark' : ''}`}>
+    <div className="app-shell theme-dark">
       <header className="topbar">
         <a className="brand" href="#" onClick={(event) => { event.preventDefault(); setActivePage('Internships') }}>
           <span className="brand-mark">j<span>.</span></span><span className="brand-name">jip<small>INTERNSHIP PORTAL</small></span>
@@ -445,9 +428,6 @@ function App() {
           <button className={activePage === 'Saved jobs' ? 'active' : ''} type="button" onClick={() => setActivePage('Saved jobs')}>Saved jobs{savedIds.length > 0 && <span>{savedIds.length}</span>}</button>
         </nav>
         <div className="account-actions">
-          <button className="theme-toggle" type="button" onClick={() => setDarkTheme((current) => !current)} aria-label={`Switch to ${darkTheme ? 'light' : 'dark'} theme`} title={`Switch to ${darkTheme ? 'light' : 'dark'} theme`}>
-            <Icon name={darkTheme ? 'sun' : 'moon'} size={17} />
-          </button>
           {isAdmin && <button className="admin-button" type="button" onClick={() => setAdminOpen(true)}>+ Add internship</button>}
           {user ? <div className="signed-in"><span className="user-name">{user.name}</span><button className="signout-button" type="button" onClick={() => signOut().catch((signOutError) => setError(signOutError.message))}>Sign out</button></div> : <button className="signin-button" type="button" onClick={() => setSignInOpen(true)}>Sign in with Google</button>}
         </div>
@@ -467,6 +447,15 @@ function App() {
           <div className="overview-item"><span className="overview-number">Verified</span><span className="overview-label">official career pages</span></div>
           <div className="overview-updated">{updatedAt && <>Feed refreshed {new Intl.DateTimeFormat('en-IN', { hour: 'numeric', minute: '2-digit' }).format(new Date(updatedAt))}</>}</div>
         </section>
+
+        <aside className="unstop-promo" aria-label="More India internships on Unstop">
+          <div className="unstop-promo-mark" aria-hidden="true">U</div>
+          <div className="unstop-promo-copy">
+            <strong>Looking for more paid internships in India?</strong>
+            <span>Browse current openings on Unstop and confirm the stipend and details on the listing.</span>
+          </div>
+          <a href="https://unstop.com/internship?oppstatus=open" target="_blank" rel="noreferrer">Explore on Unstop <Icon name="external" size={15} /></a>
+        </aside>
 
         <section className="directory-section" aria-label="Internship directory">
           <div className="directory-title"><div><h2>{activePage === 'Saved jobs' ? 'Your saved openings' : 'Internships for you'}</h2><p>Explore current openings and apply directly on the employer’s official site.</p></div><button className="refresh-button" type="button" disabled={refreshing} onClick={() => loadJobs(true)}><Icon name="refresh" size={15} />{refreshing ? 'Refreshing…' : 'Refresh'}</button></div>

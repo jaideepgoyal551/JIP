@@ -2,8 +2,9 @@
 
 :root {
   font-family: 'DM Sans', 'Segoe UI', sans-serif;
-  color: #35362e;
-  background: #faf9f6;
+  color: #e4ece6;
+  color-scheme: dark;
+  background: #101713;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -23,6 +24,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
+  background: #101713;
 }
 
 button,
@@ -40,6 +42,6 @@ select:focus-visible {
 }
 
 ::selection {
-  background: #e2edc9;
-  color: #303426;
+  background: #285337;
+  color: #f0fff3;
 }
