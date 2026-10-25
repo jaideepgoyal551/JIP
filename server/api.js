@@ -23,6 +23,41 @@ const careerBoards = [
   { company: 'Stripe', board: 'stripe' },
 ]
 
+const featuredJobs = [
+  {
+    id: 'featured-cisco-2021284',
+    company: 'Cisco',
+    title: 'Software Engineer – Network/Embedded/Application Development (Summer Internship)',
+    department: 'Engineering',
+    location: 'Bangalore, India',
+    region: 'India',
+    workMode: 'Hybrid',
+    stipend: 'Not disclosed',
+    postedAt: null,
+    deadline: '',
+    batchYears: ['2028'],
+    url: 'https://careers.cisco.com/global/en/job/CISCISGLOBAL2021284EXTERNALENGLOBAL/Software-Engineer-Network-Embedded-Application-Development-Summer-Internship-India-EG-Requisition',
+    source: 'Cisco Careers',
+    featuredOrder: 1,
+  },
+  {
+    id: 'featured-enterpret-7847134003',
+    company: 'Enterpret',
+    title: '[Backend, Onsite] Software Engineering Intern',
+    department: 'Engineering',
+    location: 'Bengaluru, India',
+    region: 'India',
+    workMode: 'On-site',
+    stipend: 'Paid — details on listing',
+    postedAt: null,
+    deadline: '',
+    batchYears: [],
+    url: 'https://job-boards.greenhouse.io/enterpret/jobs/7847134003',
+    source: 'Enterpret',
+    featuredOrder: 2,
+  },
+]
+
 const cacheDurationMs = 10 * 60 * 1000
 const sessionDurationSeconds = 60 * 60 * 24 * 7
 const manualJobsBlobPath = 'jip/manual-jobs.json'
@@ -117,6 +152,90 @@ async function fetchCompanyJobs({ company, board }) {
   return { company, internships }
 }
 
+function formatUnstopStipend(jobDetail) {
+  const minimum = Number(jobDetail.min_salary)
+  const maximum = Number(jobDetail.max_salary)
+  const period = getText(jobDetail.pay_in).replace(/ly$/, '')
+  const periodLabel = period ? ` / ${period}` : ''
+  const formatAmount = (amount) => `₹${new Intl.NumberFormat('en-IN').format(amount)}`
+  if (Number.isFinite(minimum) && Number.isFinite(maximum) && minimum > 0 && maximum > 0) {
+    return `${formatAmount(minimum)}${minimum === maximum ? '' : `–${formatAmount(maximum)}`}${periodLabel}`
+  }
+  if (Number.isFinite(minimum) && minimum > 0) return `${formatAmount(minimum)}${periodLabel}`
+  if (Number.isFinite(maximum) && maximum > 0) return `${formatAmount(maximum)}${periodLabel}`
+  return 'Paid — details on listing'
+}
+
+function normalizeUnstopJob(job) {
+  const title = getText(job.title).trim()
+  const company = getText(job.organisation?.name).trim()
+  const jobDetail = job.jobDetail || {}
+  if (!job.id || !title || !company || jobDetail.paid_unpaid !== 'paid' || jobDetail.not_disclosed === true) return null
+
+  const locations = Array.isArray(job.locations)
+    ? job.locations.map((location) => [location.city, location.state].filter(Boolean).join(', ')).filter(Boolean)
+    : []
+  const location = jobDetail.type === 'wfh'
+    ? 'Remote (India)'
+    : locations.length
+      ? locations.join(' · ')
+      : 'India'
+  const updatedAt = getText(job.updated_at)
+  const parsedDate = updatedAt && !Number.isNaN(Date.parse(updatedAt)) ? new Date(updatedAt).toISOString() : null
+  const endDate = getText(job.end_date)
+  const parsedDeadline = endDate && !Number.isNaN(Date.parse(endDate))
+    ? new Date(endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
+    : ''
+  const publicUrl = getText(job.public_url)
+  let applicationUrl
+  try {
+    applicationUrl = new URL(publicUrl, 'https://unstop.com')
+  } catch {
+    return null
+  }
+  if (applicationUrl.hostname !== 'unstop.com') return null
+
+  return {
+    id: `unstop-${job.id}`,
+    company,
+    title,
+    department: getText(job.workfunction?.[0]?.name) || 'Internship',
+    location,
+    region: 'India',
+    workMode: jobDetail.type === 'wfh' ? 'Remote' : jobDetail.type === 'hybrid' ? 'Hybrid' : 'On-site',
+    stipend: formatUnstopStipend(jobDetail),
+    postedAt: parsedDate,
+    deadline: parsedDeadline,
+    batchYears: extractBatches(title, escapeHtml(getText(job.details))),
+    url: applicationUrl.toString(),
+    logo: getText(job.logoUrl2) || getText(job.organisation?.logoUrl2) || getText(job.organisation?.logoUrl),
+    source: 'Unstop',
+  }
+}
+
+async function fetchUnstopInternships() {
+  const pages = await Promise.allSettled([1, 2, 3, 4].map(async (page) => {
+    const url = `https://unstop.com/api/public/opportunity/search-result?opportunity=internships&oppstatus=open&per_page=50&page=${page}`
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(12_000),
+      headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0 JIP Internship Portal' },
+    })
+    if (!response.ok) throw new Error(`Unstop internships feed returned HTTP ${response.status}`)
+    const result = await response.json()
+    if (!Array.isArray(result.data?.data)) throw new Error('Unstop internships feed returned an unexpected response')
+    return result.data.data
+  }))
+  const successfulPages = pages.filter((page) => page.status === 'fulfilled')
+  if (successfulPages.length === 0) {
+    throw new Error(pages.find((page) => page.status === 'rejected')?.reason?.message || 'Unstop internships feed is unavailable')
+  }
+  const internships = successfulPages
+    .flatMap((page) => page.value)
+    .map(normalizeUnstopJob)
+    .filter(Boolean)
+  return { company: 'Unstop', internships }
+}
+
 async function readManualJobs(dataDirectory) {
   const blobToken = process.env.BLOB_READ_WRITE_TOKEN
   if (blobToken) {
@@ -171,10 +290,13 @@ async function loadJobs(dataDirectory, forceRefresh = false) {
     return { ...jobsCache.value, jobs: [...manualJobs, ...jobsCache.value.jobs] }
   }
 
-  const results = await Promise.allSettled(careerBoards.map(fetchCompanyJobs))
+  const results = await Promise.allSettled([
+    ...careerBoards.map(fetchCompanyJobs),
+    fetchUnstopInternships(),
+  ])
   const companies = []
   const failedCompanies = []
-  const jobs = []
+  const jobs = [...featuredJobs]
   for (const result of results) {
     if (result.status === 'fulfilled') {
       companies.push(result.value.company)
@@ -185,7 +307,8 @@ async function loadJobs(dataDirectory, forceRefresh = false) {
   }
   if (companies.length === 0) throw new Error('All company careers feeds are currently unavailable')
 
-  jobs.sort((a, b) => (Date.parse(b.postedAt || '') || 0) - (Date.parse(a.postedAt || '') || 0))
+  jobs.sort((a, b) => (a.featuredOrder || Number.POSITIVE_INFINITY) - (b.featuredOrder || Number.POSITIVE_INFINITY)
+    || (Date.parse(b.postedAt || '') || 0) - (Date.parse(a.postedAt || '') || 0))
   const value = { jobs, companies, failedCompanies, updatedAt: new Date().toISOString() }
   jobsCache = { loadedAt: Date.now(), value }
   const manualJobs = await readManualJobs(dataDirectory)

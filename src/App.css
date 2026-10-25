@@ -1572,7 +1572,8 @@ button {
 
 .closing-badge,
 .job-type-badge,
-.days-badge {
+.days-badge,
+.featured-badge {
   display: inline-flex;
   min-height: 22px;
   align-items: center;
@@ -1582,6 +1583,11 @@ button {
   color: #65736a;
   font-size: 10px;
   font-weight: 650;
+}
+
+.featured-badge {
+  background: #263c2c;
+  color: #c5e9cc;
 }
 
 .closing-badge {
@@ -1848,6 +1854,11 @@ button {
   border-color: #663b45;
   background: #3b252b;
   color: #ffb4c0;
+}
+
+.theme-dark .featured-badge {
+  background: #25452e;
+  color: #c4edcb;
 }
 
 .theme-dark .apply-button {

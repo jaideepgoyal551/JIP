@@ -1,6 +1,6 @@
 # JIP — Jaideep Internship Platform
 
-JIP is a React placement portal for live internship openings at product companies. It reads current openings from the companies' public Greenhouse career-board API, filters for intern/co-op titles, and links applicants directly to each employer's listing. It does not invent a role, stipend, closing date, or eligible batch when a company does not publish that information.
+JIP is a React placement portal for live internship openings at product companies. It reads current openings from public company career feeds and Unstop, and links applicants to each employer's or platform's listing. It does not invent a stipend, closing date, or eligible batch when the source does not publish that information.
 
 ## Run locally
 
@@ -34,7 +34,7 @@ Save the variables and redeploy so Vercel applies them to the build and function
 
 ## Live careers feeds
 
-Openings are fetched from public Greenhouse job-board endpoints for Airbnb, Asana, Cloudflare, Coinbase, Discord, Dropbox, Duolingo, Figma, Groww, Gusto, InMobi, Lyft, MongoDB, Pinterest, Reddit, and Stripe. The server refreshes these sources every ten minutes and the **Refresh** button requests a fresh fetch. A source that is temporarily unavailable is reported; available feeds continue to load.
+Openings are fetched from public Greenhouse job-board endpoints for Airbnb, Asana, Cloudflare, Coinbase, Discord, Dropbox, Duolingo, Figma, Groww, Gusto, InMobi, Lyft, MongoDB, Pinterest, Reddit, and Stripe, plus current paid internship listings from Unstop. The Cisco and Enterpret listings shown as featured roles are linked to their active postings. The server refreshes these sources every ten minutes and the **Refresh** button requests a fresh fetch. A source that is temporarily unavailable is reported; available feeds continue to load.
 
 Feed fields vary by company. The portal labels unavailable stipend, closing date, and graduating-batch information as undisclosed instead of guessing. Batch filters match only graduation years explicitly described as class, graduation, or batch eligibility in the job title or description. Confirm details on the employer's page before applying.
 

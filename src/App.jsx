@@ -9,9 +9,11 @@ const companyDomains = {
   asana: 'asana.com',
   cloudflare: 'cloudflare.com',
   coinbase: 'coinbase.com',
+  cisco: 'cisco.com',
   discord: 'discord.com',
   dropbox: 'dropbox.com',
   duolingo: 'duolingo.com',
+  enterpret: 'enterpret.com',
   figma: 'figma.com',
   groww: 'groww.in',
   gusto: 'gusto.com',
@@ -75,10 +77,14 @@ function Icon({ name, size = 18 }) {
   )
 }
 
-function CompanyMark({ company }) {
+function CompanyMark({ company, logo }) {
   const [logoUnavailable, setLogoUnavailable] = useState(false)
   const domain = companyDomains[company.toLowerCase().replace(/[^a-z]/g, '')]
-  const logoUrl = domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=128` : null
+  const logoUrl = !logoUnavailable && logo?.startsWith('https://')
+    ? logo
+    : domain
+      ? `https://www.google.com/s2/favicons?domain=${domain}&sz=128`
+      : null
 
   return (
     <div className="company-mark" aria-label={`${company} logo`}>
@@ -228,9 +234,10 @@ function JobCard({ job, saved, today, onToggleSave }) {
   return (
     <article className={`job-card ${closingSoon ? 'closing-soon' : ''}`}>
       <div className="job-card-heading">
-        <CompanyMark company={job.company} />
+        <CompanyMark company={job.company} logo={job.logo} />
         <div className="job-title-block">
           <div className="job-badges">
+            {job.featuredOrder && <span className="featured-badge">Featured</span>}
             {closingSoon && <span className="closing-badge">Closing soon</span>}
             <span className="job-type-badge">Internship</span>
             <span className="source-badge">{job.source}</span>
@@ -362,10 +369,12 @@ function App() {
       const matchesSaved = activePage !== 'Saved jobs' || savedIds.includes(job.id)
       const jobMode = job.workMode || (/remote/i.test(job.location) ? 'Remote' : /hybrid/i.test(job.location) ? 'Hybrid' : 'On-site')
       const matchesMode = workMode === 'Any mode' || jobMode === workMode
-      const isPaid = /\d/.test(job.stipend) && !/unpaid|volunteer/i.test(job.stipend)
+      const isPaid = (/\d/.test(job.stipend) || /\bpaid\b/i.test(job.stipend)) && !/unpaid|volunteer/i.test(job.stipend)
       return matchesSearch && matchesRegion && matchesBatch && matchesDepartment && matchesSaved && matchesMode && (!paidOnly || isPaid)
     })
     return matches.sort((a, b) => {
+      const featuredPriority = (a.featuredOrder || Number.POSITIVE_INFINITY) - (b.featuredOrder || Number.POSITIVE_INFINITY)
+      if (featuredPriority) return featuredPriority
       const countryPriority = Number(b.region === 'India') - Number(a.region === 'India')
       if (countryPriority) return countryPriority
       if (sortBy === 'recent') return (Date.parse(b.postedAt || '') || 0) - (Date.parse(a.postedAt || '') || 0)
@@ -482,7 +491,7 @@ function App() {
           <div className="job-list">
             {!loading && !error && visibleJobs.map((job) => <JobCard key={job.id} job={job} saved={savedIds.includes(job.id)} today={today} onToggleSave={toggleSaved} />)}
           </div>
-          <div className="data-note"><Icon name="globe" size={14} /><span>Listings are fetched from official company career pages. Stipend, batch eligibility, and closing dates are shown only when the employer publishes them.</span></div>
+          <div className="data-note"><Icon name="globe" size={14} /><span>Listings come from company career pages and Unstop. Stipend, batch eligibility, and closing dates are shown only when the source publishes them.</span></div>
         </section>
         <footer className="page-footer"><span>JIP <span>·</span> Jaideep Internship Platform</span><span>Each opening links to the employer’s application page.</span></footer>
       </main>
