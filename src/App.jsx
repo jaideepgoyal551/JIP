@@ -269,7 +269,7 @@ function App() {
   const [batch, setBatch] = useState('Any batch')
   const [department, setDepartment] = useState('All roles')
   const [workMode, setWorkMode] = useState('Any mode')
-  const [paidOnly, setPaidOnly] = useState(true)
+  const [paidOnly, setPaidOnly] = useState(false)
   const [sortBy, setSortBy] = useState('deadline')
   const [activePage, setActivePage] = useState('Internships')
   const [loading, setLoading] = useState(true)
