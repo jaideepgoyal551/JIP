@@ -1315,70 +1315,6 @@ button {
   font-size: 10px;
 }
 
-.unstop-promo {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-top: 14px;
-  padding: 15px 18px;
-  border: 1px solid #354a3c;
-  border-radius: 12px;
-  background: linear-gradient(110deg, #1b2a20, #19221c);
-}
-
-.unstop-promo-mark {
-  display: grid;
-  width: 40px;
-  height: 40px;
-  flex: 0 0 auto;
-  place-items: center;
-  border: 1px solid #42614a;
-  border-radius: 11px;
-  background: #263b2b;
-  color: #b9dfc1;
-  font-family: var(--font-display);
-  font-size: 21px;
-  font-weight: 750;
-}
-
-.unstop-promo-copy {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.unstop-promo-copy strong {
-  color: #e3eee5;
-  font-size: 13px;
-}
-
-.unstop-promo-copy span {
-  color: #9eafa2;
-  font-size: 11px;
-}
-
-.unstop-promo > a {
-  display: inline-flex;
-  min-height: 36px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin-left: auto;
-  padding: 0 12px;
-  border: 1px solid #23814a;
-  border-radius: 8px;
-  background: #176f3a;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 650;
-  text-decoration: none;
-}
-
-.unstop-promo > a:hover {
-  background: #1d8548;
-}
-
 .directory-section {
   margin-top: 34px;
 }
@@ -1986,36 +1922,6 @@ button {
 
   .overview-label {
     font-size: 7px;
-  }
-
-  .unstop-promo {
-    flex-wrap: wrap;
-    gap: 10px;
-    padding: 12px;
-  }
-
-  .unstop-promo-mark {
-    width: 35px;
-    height: 35px;
-  }
-
-  .unstop-promo-copy {
-    flex: 1;
-  }
-
-  .unstop-promo-copy strong {
-    font-size: 11px;
-  }
-
-  .unstop-promo-copy span {
-    font-size: 9px;
-    line-height: 1.5;
-  }
-
-  .unstop-promo > a {
-    width: 100%;
-    min-height: 34px;
-    margin-left: 0;
   }
 
   .filters {

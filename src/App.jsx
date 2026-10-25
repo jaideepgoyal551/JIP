@@ -457,15 +457,6 @@ function App() {
           <div className="overview-updated">{updatedAt && <>Feed refreshed {new Intl.DateTimeFormat('en-IN', { hour: 'numeric', minute: '2-digit' }).format(new Date(updatedAt))}</>}</div>
         </section>
 
-        <aside className="unstop-promo" aria-label="More India internships on Unstop">
-          <div className="unstop-promo-mark" aria-hidden="true">U</div>
-          <div className="unstop-promo-copy">
-            <strong>Looking for more paid internships in India?</strong>
-            <span>Browse current openings on Unstop and confirm the stipend and details on the listing.</span>
-          </div>
-          <a href="https://unstop.com/internship?oppstatus=open" target="_blank" rel="noreferrer">Explore on Unstop <Icon name="external" size={15} /></a>
-        </aside>
-
         <section className="directory-section" aria-label="Internship directory">
           <div className="directory-title"><div><h2>{activePage === 'Saved jobs' ? 'Your saved openings' : 'Internships for you'}</h2><p>Explore current openings and apply directly on the employer’s official site.</p></div><button className="refresh-button" type="button" disabled={refreshing} onClick={() => loadJobs(true)}><Icon name="refresh" size={15} />{refreshing ? 'Refreshing…' : 'Refresh'}</button></div>
 
